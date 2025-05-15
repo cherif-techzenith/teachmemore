@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { validationResult } = require('express-validator');
 const { pool } = require('../config/database');
-const { isDatabaseConnected } = require('../utils/helper')
 
 
 // User registration
@@ -85,7 +84,11 @@ const loginUser = async(req, res) => {
         }
 
         res.status(200).json({
-            message: 'Login successful.'
+            message: 'Login successful.',
+            user: {
+                username: user.username,
+                email: user.email,
+            }
         })
 
     } catch (error) {
@@ -103,7 +106,7 @@ const getUserById = async(req, res) => {
     try {
     
         const userQuery = 'SELECT user_id, username, email, created_at, FROM users WHERE user_id = $1';
-        const userResult = pool.query(userQuery, [userId]);
+        const userResult = await pool.query(userQuery, [userId]);
 
         if (userResult.rows.length === 0) {
             return res.status(404).json({
@@ -148,13 +151,13 @@ const updateUser = async(req, res) => {
         let valueIndex = 1;
 
         if(username){
-            updateQuery += `username = $${valueIndex}, `;
+            updateQuery += ` username = $${valueIndex},`;
             values.push(username);
             valueIndex++;
         }
 
         if(email){
-            updateQuery += `email = $${valueIndex}, `;
+            updateQuery += ` email = $${valueIndex},`;
             values.push(email);
             valueIndex++;
         }
@@ -189,7 +192,7 @@ const deleteUser = async(req, res) => {
     
     try {
         const checkUserQuery = 'SELECT user_id FROM users WHERE user_id = $1';
-        const userResult = pool.query(checkUserQuery, [userId]);
+        const userResult = await pool.query(checkUserQuery, [userId]);
         if(userResult.rows.length === 0){
             return res.status(404).json({
                 error: 'User not found.'

@@ -1,21 +1,25 @@
 // Dependencies
-const express = require('express')
-const userRoutes = require('./routes/userRoutes')
-const errorHandler = require('./middlewares/errorHandler')
-const { pool } = require('./config/database')
-const { isDatabaseConnected } = require('./utils/helper')
+const express = require('express');
+const userRoutes = require('./routes/userRoutes');
+const rolesRoutes = require('./routes/roleRoutes');
+const errorHandler = require('./middlewares/errorHandler');
+const { pool, initializeDatabase } = require('./config/database');
+const { isDatabaseConnected } = require('./utils/helper');
 
 // Initialization
-const app = express()
-const port = process.env.PORT || 3001
+const app = express();
+const port = process.env.PORT || 3001;
 
-app.use(express.json())
+app.use(express.json());
 
 // User routes
-app.use('/users', userRoutes)
+app.use('/users', userRoutes);
+
+// Role routes
+app.use('/roles', rolesRoutes);
 
 // Error handler
-app.use(errorHandler)
+app.use(errorHandler);
 
 // Health check
 app.use('/health', async(req, res) => {
@@ -34,8 +38,16 @@ app.use('/health', async(req, res) => {
             db: 'PostgreSQL'
         })
     }
-})
+});
 
-app.listen(
-    3000, () => console.log(`User service is running on ${port}`)
-)
+function startServer(){
+    app.listen(
+        3000, () => console.log(`User service is running on ${port}`)
+    );
+}
+
+
+initializeDatabase().then(() => {
+    // Start the server after the database is initialized
+    startServer();
+});

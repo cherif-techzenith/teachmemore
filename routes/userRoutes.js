@@ -15,7 +15,7 @@ router.post('/register', [
 // User login
 router.post('/login', [
     body('identifier').trim().notEmpty().withMessage('Username or Email is required.'),
-    body('password').trim().notEmpty('Password is required.')
+    body('password').trim().notEmpty().withMessage('Password is required.')
 ], userController.loginUser)
 
 // Get user by ID
