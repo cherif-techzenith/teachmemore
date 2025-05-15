@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { validationResult } = require('express-validator');
 const { pool } = require('../config/database');
-
+const jwt = require('jsonwebtoken')
 
 // User registration
 const registerUser = async(req, res) => {
@@ -83,8 +83,20 @@ const loginUser = async(req, res) => {
             });
         }
 
+        const payload = {
+            userId: user.user_id,
+            username: user.username,
+            email: user.email
+        }
+
+        const jwt_secret = process.env.JWT_SECRET
+        const token = jwt.sign(payload, jwt_secret, {
+            expiresIn: '1h'
+        })
+
         res.status(200).json({
             message: 'Login successful.',
+            token: token,
             user: {
                 username: user.username,
                 email: user.email,
