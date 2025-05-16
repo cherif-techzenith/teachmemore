@@ -1,7 +1,8 @@
 // Dependencies
-const express = require('express')
-const { body } = require('express-validator')
-const authController = require('../controllers/authController')
+const express = require('express');
+const { body } = require('express-validator');
+const authController = require('../controllers/authController');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router()
 
@@ -19,14 +20,17 @@ router.post('/login', [
     body('password').trim().notEmpty().withMessage('Password is required.')
 ], authController.login)
 
+// Get account details
+router.get('/me', [authMiddleware], authController.me);
+
 // Update user by ID
 router.put('/update',[
     body('username').optional().trim().isLength({min: 8, max: 20}).withMessage('Username must be between 8 and 20 characters.'),
     body('email').optional().trim().isEmail().withMessage('Invalid email format'),
-], authController.update);
+], [authMiddleware], authController.update);
 
 // Refresh token
-router.post('/refresh-token', authController.refreshToken)
+router.post('/refresh-token', [authMiddleware], authController.refreshToken)
 
 // Forgot password
 router.post('/forgot-password', authController.forgotPassword)

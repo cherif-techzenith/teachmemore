@@ -116,6 +116,22 @@ const updateUser = async(req, res) => {
             });
         }
 
+        const existingUserQuery = 'SELECT user_id, username FROM users WHERE username = $1 OR email = $2';
+        const existingUserResult = await pool.query(existingUserQuery, [username, email]);
+        const existingUser = existingUserResult.rows[0];
+
+        if (existingUserResult.rows.length > 0 && existingUser.username !== user) {
+            if(existingUser.username === username){
+                return res.status(409).json({
+                    error: 'Username already exists.'
+                });
+            }else{
+                return res.status(409).json({
+                    error: 'Email already exists.'
+                });
+            }
+        }
+
         let updateQuery = 'UPDATE users SET updated_at = NOW(),';
         const values = [];
         let valueIndex = 1;

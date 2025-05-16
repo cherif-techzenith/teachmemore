@@ -118,12 +118,11 @@ const login = async(req, res) => {
 
 // Get account details
 const me = async(req, res) => {
-    const { userId } = req.params;
+    const { user } = req;
     
     try {
-    
-        const userQuery = 'SELECT user_id, username, email, created_at, FROM users WHERE user_id = $1';
-        const userResult = await pool.query(userQuery, [userId]);
+        const userQuery = 'SELECT user_id, username, email, created_at, updated_at, last_login FROM users WHERE user_id = $1';
+        const userResult = await pool.query(userQuery, [user.userId]);
 
         if (userResult.rows.length === 0) {
             return res.status(404).json({
@@ -131,9 +130,7 @@ const me = async(req, res) => {
             });
         }
 
-        const user = userResult.rows[0]
-        res.status(200).json(user);
-        
+        res.status(200).json(userResult.rows[0]);
     } catch (error) {
         console.error('Error fetching user: ', error);
         res.status(500).json({
@@ -151,19 +148,35 @@ const update = async(req, res) => {
         })
     }
 
-    const { userId } = req.params;
+    const { user } = req;
     const { username, email } = req.body;
 
     try {
         const checkUserQuery = 'SELECT user_id FROM users WHERE user_id = $1';
-        const userResult = await pool.query(checkUserQuery, [userId]);
+        const userResult = await pool.query(checkUserQuery, [user.userId]);
         if(userResult.rows.length === 0){
             return res.status(404).json({
                 error: 'User not found',
             });
         }
 
-        let updateQuery = 'UPDATE users SET';
+        const existingUserQuery = 'SELECT user_id, username FROM users WHERE username = $1 OR email = $2';
+        const existingUserResult = await pool.query(existingUserQuery, [username, email]);
+        const existingUser = existingUserResult.rows[0];
+
+        if (existingUser && existingUser.user_id !== user.userId) {
+            if(existingUser.username === username){
+                return res.status(409).json({
+                    error: 'Username already exists.'
+                });
+            }else{
+                return res.status(409).json({
+                    error: 'Email already exists.'
+                });
+            }
+        }
+
+        let updateQuery = 'UPDATE users SET updated_at = NOW(),';
         const values = [];
         let valueIndex = 1;
 
@@ -179,9 +192,9 @@ const update = async(req, res) => {
             valueIndex++;
         }
 
-        updateQuery = updateQuery.slice(0, -2);
+        updateQuery = updateQuery.slice(0, -1);
         updateQuery += ` WHERE user_id = $${valueIndex}`;
-        values.push(userId);
+        values.push(user.userId);
 
         const result = await pool.query(updateQuery, values);
 
