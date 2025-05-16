@@ -6,8 +6,8 @@ const { validationResult } = require('express-validator');
 const { pool } = require('../config/database');
 const jwt = require('jsonwebtoken')
 
-// Create user
-const createUser = async(req, res) => {
+// User registration
+const register = async(req, res) => {
     const errors = validationResult(req);
     if(!errors.isEmpty()){
         return res.status(400).json({
@@ -15,7 +15,7 @@ const createUser = async(req, res) => {
         });
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, password_confirmation } = req.body;
 
     try {
         const existingUserQuery = 'SELECT user_id FROM users WHERE username = $1 OR email = $2';
@@ -34,6 +34,12 @@ const createUser = async(req, res) => {
             }
         }
         
+        if(password !== password_confirmation){
+            return res.status(409).json({
+                error: 'Password confirmation does not match.'
+            })
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = uuidv4();
         const insertUserQuery = `
@@ -54,30 +60,70 @@ const createUser = async(req, res) => {
     }
 }
 
-// Get users
-const getUsers = async(req, res) => {
+// User login
+const login = async(req, res) => {
+    const errors = validationResult(req);
+    if(!errors.isEmpty()){
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    }
+
+    const { identifier, password } = req.body;
+
     try {
-        const usersQuery = 'SELECT user_id, username, email, created_at, updated_at, last_login FROM users';
-        const usersResult = await pool.query(usersQuery);
+        const userQuery = 'SELECT user_id, username, email, password FROM users WHERE username = $1 OR email = $1';
+        const userResult = await pool.query(userQuery, [identifier]);
+
+        if(userResult.rows.length === 0){
+            return res.status(401).json({
+                error: 'Invalid credentials.',
+            })
+        }
+
+        const user = userResult.rows[0];
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if(!passwordMatch){
+            return res.status(401).json({
+                error: 'Incorrect password.'
+            });
+        }
+
+        const updateLastLoginQuery = "UPDATE users SET last_login = NOW() WHERE username = $1";
+        await pool.query(updateLastLoginQuery, [user.username])
+
+        const payload = {
+            userId: user.user_id,
+            username: user.username,
+            email: user.email
+        }
+
+        const jwt_secret = process.env.JWT_SECRET
+        const token = jwt.sign(payload, jwt_secret, {
+            expiresIn: '1h'
+        })
 
         res.status(200).json({
-            users: usersResult.rows
+            message: 'Login successful.',
+            token: token,
         })
-        
+
     } catch (error) {
-        console.error('Error fetching users: ', error);
-        res.status(500).json('Internal server error.')
+        console.error('Error during login: ', error);
+        res.status(500).json({
+            error: 'Internal server error.'
+        })
     }
 }
 
-// Get user by username
-const getUser = async(req, res) => {
-    const { user } = req.params;
+// Get account details
+const me = async(req, res) => {
+    const { userId } = req.params;
     
     try {
     
-        const userQuery = 'SELECT user_id, username, email, created_at, updated_at, last_login FROM users WHERE username = $1';
-        const userResult = await pool.query(userQuery, [user]);
+        const userQuery = 'SELECT user_id, username, email, created_at, FROM users WHERE user_id = $1';
+        const userResult = await pool.query(userQuery, [userId]);
 
         if (userResult.rows.length === 0) {
             return res.status(404).json({
@@ -85,7 +131,8 @@ const getUser = async(req, res) => {
             });
         }
 
-        res.status(200).json(userResult.rows[0]);
+        const user = userResult.rows[0]
+        res.status(200).json(user);
         
     } catch (error) {
         console.error('Error fetching user: ', error);
@@ -95,8 +142,8 @@ const getUser = async(req, res) => {
     }
 }
 
-// Update user by ID
-const updateUser = async(req, res) => {
+// Update account details
+const update = async(req, res) => {
     const errors = validationResult(req);
     if(!errors.isEmpty()){
         return res.status(400).json({
@@ -104,19 +151,19 @@ const updateUser = async(req, res) => {
         })
     }
 
-    const { user } = req.params;
+    const { userId } = req.params;
     const { username, email } = req.body;
 
     try {
-        const checkUserQuery = 'SELECT user_id FROM users WHERE username = $1';
-        const userResult = await pool.query(checkUserQuery, [user]);
+        const checkUserQuery = 'SELECT user_id FROM users WHERE user_id = $1';
+        const userResult = await pool.query(checkUserQuery, [userId]);
         if(userResult.rows.length === 0){
             return res.status(404).json({
                 error: 'User not found',
             });
         }
 
-        let updateQuery = 'UPDATE users SET updated_at = NOW(),';
+        let updateQuery = 'UPDATE users SET';
         const values = [];
         let valueIndex = 1;
 
@@ -132,9 +179,9 @@ const updateUser = async(req, res) => {
             valueIndex++;
         }
 
-        updateQuery = updateQuery.slice(0, -1);
-        updateQuery += ` WHERE username = $${valueIndex}`;
-        values.push(user);
+        updateQuery = updateQuery.slice(0, -2);
+        updateQuery += ` WHERE user_id = $${valueIndex}`;
+        values.push(userId);
 
         const result = await pool.query(updateQuery, values);
 
@@ -156,36 +203,34 @@ const updateUser = async(req, res) => {
     }
 }
 
-// Delete user by ID
-const deleteUser = async(req, res) => {
-    const { user } = req.params
-    
-    try {
-        const checkUserQuery = 'SELECT user_id FROM users WHERE username = $1';
-        const userResult = await pool.query(checkUserQuery, [user]);
-        if(userResult.rows.length === 0){
-            return res.status(404).json({
-                error: 'User not found.'
-            })
-        }
+// Refresh token
+const refreshToken = (req, res) => {
 
-        const deleteUserQuery = 'DELETE FROM users WHERE username = $1';
-        await pool.query(deleteUserQuery, [user]);
+}
 
-        res.status(200).json({
-            message: 'User deleted successfully'
-        })
-        
-    } catch (error) {
-        console.error('Error deleting user: ', error);
-        res.status(500).json({
-            error: 'Internal server error.'
-        });
-    }
+// Revoke token
+const revokeToken = (req, res) => {
+
+}
+
+// Forgot password
+const forgotPassword = (req, res) => {
+
+}
+
+// Reset password
+const resetPassword = (req, res) => {
+
+}
+
+// Logout
+const logout = (req, res) => {
+
 }
 
 module.exports = {
-    createUser, updateUser,
-    getUser, getUsers,
-    deleteUser
+    register, login, logout,
+    me, update,
+    refreshToken, revokeToken,
+    forgotPassword, resetPassword,
 }

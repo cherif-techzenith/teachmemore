@@ -1,6 +1,7 @@
 // Dependencies
 const express = require('express');
 const userRoutes = require('./routes/userRoutes');
+const authRoutes = require('./routes/authRoutes');
 const rolesRoutes = require('./routes/roleRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const { pool, initializeDatabase } = require('./config/database');
@@ -14,6 +15,9 @@ app.use(express.json());
 
 // User routes
 app.use('/users', userRoutes);
+
+// Auth routes
+app.use('/auth', authRoutes);
 
 // Role routes
 app.use('/roles', rolesRoutes);

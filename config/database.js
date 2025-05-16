@@ -39,7 +39,9 @@ async function initializeDatabase() {
                     username VARCHAR(255) NOT NULL UNIQUE,
                     email VARCHAR(255) NOT NULL UNIQUE,
                     password VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    updated_at TIMESTAMP WITH TIME ZONE,
+                    last_login TIMESTAMP WITH TIME ZONE
                 );
             `);
             console.log('Users table created');
