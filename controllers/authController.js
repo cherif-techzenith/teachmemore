@@ -218,7 +218,36 @@ const update = async(req, res) => {
 
 // Refresh token
 const refreshToken = (req, res) => {
+    const { refreshToken } = req.body;
 
+    if(!refreshToken){
+        return res.status(401).json({
+            error: 'Refresh token is required.'
+        });
+    }
+
+    jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
+        if(err){
+            return res.status(403).json({
+                error: 'Invalid refresh token.'
+            });
+        }
+
+        const payload = {
+            userId: decoded.userId,
+            username: decoded.username,
+            email: decoded.email
+        }
+
+        const newToken = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: '1h'
+        });
+
+        res.status(200).json({
+            message: 'Token refreshed successfully.',
+            token: newToken
+        });
+    });
 }
 
 // Revoke token
