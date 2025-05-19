@@ -257,7 +257,35 @@ const revokeToken = (req, res) => {
 
 // Forgot password
 const forgotPassword = (req, res) => {
+    const { email } = req.body;
 
+    if(!email){
+        return res.status(400).json({
+            error: 'Email is required.'
+        });
+    }
+
+    // Check if user exists
+    const userQuery = 'SELECT user_id FROM users WHERE email = $1';
+    pool.query(userQuery, [email], (err, result) => {
+        if(err){
+            console.error('Error checking user: ', err);
+            return res.status(500).json({
+                error: 'Internal server error.'
+            });
+        }
+
+        if(result.rows.length === 0){
+            return res.status(404).json({
+                error: 'User not found.'
+            });
+        }
+
+        // Generate reset token and send email (not implemented)
+        res.status(200).json({
+            message: 'Password reset link sent to your email.'
+        });
+    });
 }
 
 // Reset password
