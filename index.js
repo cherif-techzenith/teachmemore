@@ -6,10 +6,24 @@ const rolesRoutes = require('./routes/roleRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const { pool, initializeDatabase } = require('./config/database');
 const { isDatabaseConnected } = require('./utils/helper');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Initialization
 const app = express();
 const port = process.env.PORT || 3001;
+
+// Security Middlewares
+app.use(helmet()); // Adds various security headers
+
+// Rate Limiting
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+app.use(limiter); // Apply the rate limiting middleware to all requests
 
 app.use(express.json());
 
@@ -46,12 +60,11 @@ app.use('/health', async(req, res) => {
 
 function startServer(){
     app.listen(
-        3000, () => console.log(`User service is running on ${port}`)
+        port, () => console.log(`User service is running on port ${port}`)
     );
 }
 
 
 initializeDatabase().then(() => {
-    // Start the server after the database is initialized
     startServer();
 });

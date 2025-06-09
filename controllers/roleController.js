@@ -32,14 +32,16 @@ const createRole = async(req, res) => {
 
     } catch (error) {
         console.error('Error creating a role: ', error);
-        res.status(500).json('Internal server error.');
+        res.status(500).json({
+            error: 'Internal server error.'
+        });
     }
 }
 
 // Get roles
 const getRoles = async(req, res) => {
     try {
-        const rolesQuery = 'SELECT name FROM roles';
+        const rolesQuery = 'SELECT role_id, name FROM roles';
         const rolesResult = await pool.query(rolesQuery);
 
         res.status(200).json({
@@ -47,7 +49,9 @@ const getRoles = async(req, res) => {
         });
     } catch (error) {
         console.error('Error fetching roles: ', error);
-        res.json(500).json('Internal server error.');
+        res.status(500).json({
+            error: 'Internal server error.'
+        });
     }
 }
 
@@ -70,7 +74,9 @@ const getRoleById = async(req, res) => {
         res.status(200).json(role);
     } catch (error) {
         console.error('Error fetching role: ', error);
-        res.status(500).json('Internal server error.');
+        res.status(500).json({
+            error: 'Internal server error.'
+        });
     }
 }
 
@@ -99,20 +105,24 @@ const updateRole = async(req, res) => {
         const values = [];
         let valueIndex = 1;
 
+        // Assuming 'name' is the only field to update for a role.
+        // If there were more, you'd build `setClauses` array and join them.
         if(name){
-            updateQuery += ` name = $${valueIndex} `
+            updateQuery += `name = $${valueIndex}`;
             values.push(name);
-            valueIndex++
+            valueIndex++;
+        } else {
+            // If name is optional for update, but if nothing is provided to update.
+            return res.status(400).json({ error: 'No update fields provided or name is missing.' });
         }
 
-        updateQuery = updateQuery.slice(0, -2);
-        updateQuery += ` WHERE role_id = $1`;
+        updateQuery += ` WHERE role_id = $${valueIndex}`; // Use the correct parameter index for roleId
         values.push(roleId);
 
         const result = await pool.query(updateQuery, values);
 
         if(result.rowCount === 0){
-            return res.status(404).json({
+            return res.status(400).json({ // 400 might be more appropriate if the update didn't change anything or failed due to input
                 error: 'Failed to update role. No changes were made.'
             });
         }
@@ -122,7 +132,9 @@ const updateRole = async(req, res) => {
         });
     } catch (error) {
         console.error('Error updating role: ', error);
-        res.status(500).json('Internal server error.');
+        res.status(500).json({
+            error: 'Internal server error.'
+        });
     }
 }
 
@@ -148,7 +160,9 @@ const deleteRole = async(req, res) => {
 
     } catch (error) {
         console.error('Error deleting role: ', error);
-        res.status(500).json('Internal server error');
+        res.status(500).json({
+            error: 'Internal server error.'
+        });
     }
 }
 
@@ -158,4 +172,4 @@ module.exports = {
     getRoleById,
     updateRole,
     deleteRole
-}
+};
